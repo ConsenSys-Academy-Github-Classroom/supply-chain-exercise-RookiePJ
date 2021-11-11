@@ -19,43 +19,40 @@ contract SupplyChain {
   struct Item { string name; uint sku; uint price; State state; address payable seller; address payable buyer; }
 
   
-  /* 
-   * Events
-   */
+  /** Events */
 
-  // <LogForSale event: sku arg>
-
-  // <LogSold event: sku arg>
-
-  // <LogShipped event: sku arg>
-
-  // <LogReceived event: sku arg>
+  event LogForSale(uint sku);          // <LogForSale event: sku arg>
+  event LogSold(uint sku);             // <LogSold event: sku arg>
+  event LogShipped(uint sku);          // <LogShipped event: sku arg>
+  event LogReceived(uint sku);         // <LogReceived event: sku arg>
 
 
-  /* 
-   * Modifiers
-   */
+  /** Modifiers */
 
   // Create a modifer, `isOwner` that checks if the msg.sender is the owner of the contract
 
-  // <modifier: isOwner
 
-  modifier verifyCaller (address _address) { 
-    // require (msg.sender == _address); 
-    _;
+  modifier isOwner(address _owner) {         // <modifier: isOwner
+      require (msg.sender == _owner);
+      _;
   }
 
-  modifier paidEnough(uint _price) { 
-    // require(msg.value >= _price); 
-    _;
+  modifier verifyCaller (address _address) {
+      require (msg.sender == _address);
+      _;
+  }
+
+  modifier paidEnough(uint _price) {
+      require(msg.value >= _price);
+      _;
   }
 
   modifier checkValue(uint _sku) {
     //refund them after pay for item (why it is before, _ checks for logic before func)
     _;
-    // uint _price = items[_sku].price;
-    // uint amountToRefund = msg.value - _price;
-    // items[_sku].buyer.transfer(amountToRefund);
+    uint _price = items[_sku].price;
+    uint amountToRefund = msg.value - _price;
+    items[_sku].buyer.transfer(amountToRefund);   // PJR this is transfering ether!
   }
 
   // For each of the following modifiers, use what you learned about modifiers
@@ -66,10 +63,47 @@ contract SupplyChain {
   // that an Item is for sale. Hint: What item properties will be non-zero when
   // an Item has been added?
 
-  // modifier forSale
-  // modifier sold(uint _sku) 
-  // modifier shipped(uint _sku) 
-  // modifier received(uint _sku) 
+  modifier forSale(uint _sku) {                         // modifier forSale
+     State saleState = items[_sku].state;
+     address sellerAddress = items[_sku].seller;
+     // require state to be equal to for sale and a non zero seller address to confirm item is initialised
+     require( (saleState == State.ForSale) && (sellerAddress != address(0)), "Not for sale");
+     _;
+  }
+
+  modifier sold(uint _sku) {                            // modifier sold(uint _sku)
+      State soldState = items[_sku].state;
+      require(soldState == State.Sold, "Not sold");
+      _;
+  }
+
+  modifier shipped(uint _sku) {                        // modifier shipped(uint _sku) 
+       State shippedState = items[_sku].state;
+       require(shippedState == State.Shipped, "Not shipped");
+       _;
+  }
+
+  modifier received(uint _sku) {                       // modifier received(uint _sku)
+      State shippedState = items[_sku].state;
+      require(shippedState == State.Received, "Not shipped");
+      _;
+  }
+
+  modifier isSeller(uint _sku) {                      // pjr added - check that seller (msg.sender) is the seller address stored in the item
+      address senderAddress = msg.sender;
+      address itemSellerAddress = items[_sku].seller;
+      require(senderAddress == itemSellerAddress, "Not seller");
+      _;
+  }
+
+  modifier isBuyer(uint _sku) {                       // pjr added - check the buyer (msg.sender) is the buyer address stored in the item
+      address buyerAddress = msg.sender;
+      address itemBuyerAddress = items[_sku].buyer;
+      require(buyerAddress == itemBuyerAddress, "Not buyer");
+      _;
+  }
+
+  /** Functions */
 
   constructor() public {
     // 1. Set the owner to the transaction sender
