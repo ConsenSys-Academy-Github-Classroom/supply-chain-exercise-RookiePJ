@@ -17,7 +17,6 @@ contract SupplyChain {
 
   // <struct Item: name, sku, price, state, seller, and buyer>
   struct Item { string name; uint sku; uint price; State state; address payable seller; address payable buyer; }
-
   
   /** Events */
 
@@ -30,7 +29,6 @@ contract SupplyChain {
   /** Modifiers */
 
   // Create a modifer, `isOwner` that checks if the msg.sender is the owner of the contract
-
 
   modifier isOwner(address _owner) {         // <modifier: isOwner
       require (msg.sender == _owner);
@@ -52,7 +50,9 @@ contract SupplyChain {
     _;
     uint _price = items[_sku].price;
     uint amountToRefund = msg.value - _price;
-    items[_sku].buyer.transfer(amountToRefund);   // PJR this is transfering ether!
+    address payable buyerPayable = payable(items[_sku].buyer);   // convert to payable to make refund
+    buyerPayable.transfer(amountToRefund);                       // this is transfering ether!
+    //items[_sku].buyer.transfer(amountToRefund);
   }
 
   // For each of the following modifiers, use what you learned about modifiers
@@ -105,16 +105,26 @@ contract SupplyChain {
 
   /** Functions */
 
-  constructor() public {
-    // 1. Set the owner to the transaction sender
-    // 2. Initialize the sku count to 0. Question, is this necessary?
-  }
+  constructor() {
+      owner = msg.sender;            // 1. Set the owner to the transaction sender
+      skuCount = 0;                  // 2. Initialize the sku count to 0. Question, is this necessary?
+  }                                  //    Answer - not necessary, but cleaner code if you are not dependant upon compiler defaults.
+                                     //           - what if future compiler behaviour is changed?  Inheritance and constuctor chaining (always a problem in java!)
+                                     //           - lastly, the person maintaining the code may not understand default values.
+
 
   function addItem(string memory _name, uint _price) public returns (bool) {
-    // 1. Create a new item and put in array
-    // 2. Increment the skuCount by one
-    // 3. Emit the appropriate event
-    // 4. return true
+      address payable itemSellerPayable = payable(msg.sender);
+      address payable itemBuyerPayable = payable(address(0));
+
+      Item memory newItem = Item(         // 1. Create a new item
+          { name: _name, sku: skuCount, price: _price, state: State.ForSale, seller: itemSellerPayable, buyer: itemBuyerPayable }
+      );
+      items[skuCount] = newItem;          // 1. put in array
+      skuCount++;                         // 2. Increment the skuCount by one
+      emit LogForSale(skuCount);          // 3. Emit the appropriate event
+      return (true);                      // 4. return true
+  }
 
     // hint:
     // items[skuCount] = Item({
@@ -129,7 +139,7 @@ contract SupplyChain {
     //skuCount = skuCount + 1;
     // emit LogForSale(skuCount);
     // return true;
-  }
+
 
   // Implement this buyItem function. 
   // 1. it should be payable in order to receive refunds
@@ -142,32 +152,56 @@ contract SupplyChain {
   //    - check the value after the function is called to make 
   //      sure the buyer is refunded any excess ether sent. 
   // 6. call the event associated with this function!
-  function buyItem(uint sku) public {}
+  function buyItem(uint _sku) payable public 
+    forSale(_sku) paidEnough(items[_sku].price) checkValue(_sku) {
+
+       address payable buyer = payable(msg.sender);
+       address payable seller = payable(items[_sku].seller);
+       uint itemPrice = items[_sku].price;
+
+       items[_sku].buyer = buyer;
+       items[_sku].state = State.Sold;
+
+       emit LogSold(_sku);
+
+       //transfer money last, to prevent a reentry attach
+       bool sent = seller.send(itemPrice);
+       require (sent == true, "Problem sending ether");
+  }
 
   // 1. Add modifiers to check:
   //    - the item is sold already 
   //    - the person calling this function is the seller. 
   // 2. Change the state of the item to shipped. 
   // 3. call the event associated with this function!
-  function shipItem(uint sku) public {}
+  function shipItem(uint _sku) public
+    sold(_sku) isSeller(_sku) {
+
+      items[_sku].state = State.Shipped;
+      emit LogShipped(_sku);
+  }
 
   // 1. Add modifiers to check 
   //    - the item is shipped already 
   //    - the person calling this function is the buyer. 
   // 2. Change the state of the item to received. 
   // 3. Call the event associated with this function!
-  function receiveItem(uint sku) public {}
+  function receiveItem(uint _sku) public 
+    shipped(_sku) isBuyer(_sku) {
+
+      items[_sku].state = State.Received;
+      emit LogReceived(_sku);
+  }
 
   // Uncomment the following code block. it is needed to run tests
-  /* function fetchItem(uint _sku) public view */ 
-  /*   returns (string memory name, uint sku, uint price, uint state, address seller, address buyer) */ 
-  /* { */
-  /*   name = items[_sku].name; */
-  /*   sku = items[_sku].sku; */
-  /*   price = items[_sku].price; */
-  /*   state = uint(items[_sku].state); */
-  /*   seller = items[_sku].seller; */
-  /*   buyer = items[_sku].buyer; */
-  /*   return (name, sku, price, state, seller, buyer); */
-  /* } */
-}
+  function fetchItem(uint _sku) public view
+     returns (string memory name, uint sku, uint price, uint state, address seller, address buyer) {
+     name = items[_sku].name;
+     sku = items[_sku].sku;
+     price = items[_sku].price;
+     state = uint(items[_sku].state);
+     seller = items[_sku].seller;
+     buyer = items[_sku].buyer;
+     return (name, sku, price, state, seller, buyer);
+  }
+}  // end of contract SupplyChain
