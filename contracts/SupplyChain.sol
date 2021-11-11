@@ -50,8 +50,9 @@ contract SupplyChain {
     _;
     uint _price = items[_sku].price;
     uint amountToRefund = msg.value - _price;
-    address payable buyerPayable = payable(items[_sku].buyer);   // convert to payable to make refund
-    buyerPayable.transfer(amountToRefund);                       // this is transfering ether!
+    address payable buyerPayable = items[_sku].buyer;
+    (bool sent, ) = buyerPayable.call{value: amountToRefund}("");
+    //buyerPayable.transfer(amountToRefund); // this is transfering ether!  converted to use the call on the buyer address
     //items[_sku].buyer.transfer(amountToRefund);
   }
 
@@ -112,7 +113,11 @@ contract SupplyChain {
                                      //           - what if future compiler behaviour is changed?  Inheritance and constuctor chaining (always a problem in java!)
                                      //           - lastly, the person maintaining the code may not understand default values.
 
+  // default action when receiving a payment for the contract
+  receive() external payable { }
+  fallback() external payable { revert(); }
 
+  /** Add an item */
   function addItem(string memory _name, uint _price) public returns (bool) {
       address payable itemSellerPayable = payable(msg.sender);
       address payable itemBuyerPayable = payable(address(0));
@@ -152,11 +157,13 @@ contract SupplyChain {
   //    - check the value after the function is called to make 
   //      sure the buyer is refunded any excess ether sent. 
   // 6. call the event associated with this function!
+
+  /** Buy an item */
   function buyItem(uint _sku) payable public 
     forSale(_sku) paidEnough(items[_sku].price) checkValue(_sku) {
 
        address payable buyer = payable(msg.sender);
-       address payable seller = payable(items[_sku].seller);
+       address payable seller = items[_sku].seller;
        uint itemPrice = items[_sku].price;
 
        items[_sku].buyer = buyer;
@@ -165,8 +172,10 @@ contract SupplyChain {
        emit LogSold(_sku);
 
        //transfer money last, to prevent a reentry attach
-       bool sent = seller.send(itemPrice);
-       require (sent == true, "Problem sending ether");
+       (bool sent, ) = seller.call{value: itemPrice}("");
+       require (sent == true, "Problem buying when trying to send seller");
+
+       // bool sent = seller.send(itemPrice);
   }
 
   // 1. Add modifiers to check:
@@ -174,6 +183,8 @@ contract SupplyChain {
   //    - the person calling this function is the seller. 
   // 2. Change the state of the item to shipped. 
   // 3. call the event associated with this function!
+
+  /** Ship an item */
   function shipItem(uint _sku) public
     sold(_sku) isSeller(_sku) {
 
@@ -186,6 +197,8 @@ contract SupplyChain {
   //    - the person calling this function is the buyer. 
   // 2. Change the state of the item to received. 
   // 3. Call the event associated with this function!
+
+  /** Receive and item */
   function receiveItem(uint _sku) public 
     shipped(_sku) isBuyer(_sku) {
 
@@ -194,6 +207,7 @@ contract SupplyChain {
   }
 
   // Uncomment the following code block. it is needed to run tests
+  /** Fetch an item - helper function for tests */
   function fetchItem(uint _sku) public view
      returns (string memory name, uint sku, uint price, uint state, address seller, address buyer) {
      name = items[_sku].name;
