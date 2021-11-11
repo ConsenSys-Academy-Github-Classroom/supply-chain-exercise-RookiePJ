@@ -1,4 +1,7 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.16 <0.9.0;
+
+//pragma solidity ^0.5.0;  // PJR changed project compiler to be latest (0.8) - original line was not compiling
 
 import "truffle/Assert.sol";
 import "truffle/DeployedAddresses.sol";
