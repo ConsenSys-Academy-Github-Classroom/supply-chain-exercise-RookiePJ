@@ -68,39 +68,39 @@ contract SupplyChain {
      State saleState = items[_sku].state;
      address sellerAddress = items[_sku].seller;
      // require state to be equal to for sale and a non zero seller address to confirm item is initialised
-     require( (saleState == State.ForSale) && (sellerAddress != address(0)), "Not for sale");
+     require( (saleState == State.ForSale) && (sellerAddress != address(0)), "[forSale] Not for sale");
      _;
   }
 
   modifier sold(uint _sku) {                            // modifier sold(uint _sku)
       State soldState = items[_sku].state;
-      require(soldState == State.Sold, "Not sold");
+      require(soldState == State.Sold, "[sold] Not sold");
       _;
   }
 
   modifier shipped(uint _sku) {                        // modifier shipped(uint _sku) 
        State shippedState = items[_sku].state;
-       require(shippedState == State.Shipped, "Not shipped");
+       require(shippedState == State.Shipped, "[shipped] Not shipped");
        _;
   }
 
   modifier received(uint _sku) {                       // modifier received(uint _sku)
       State shippedState = items[_sku].state;
-      require(shippedState == State.Received, "Not shipped");
+      require(shippedState == State.Received, "[received] Not shipped");
       _;
   }
 
   modifier isSeller(uint _sku) {                      // pjr added - check that seller (msg.sender) is the seller address stored in the item
       address senderAddress = msg.sender;
       address itemSellerAddress = items[_sku].seller;
-      require(senderAddress == itemSellerAddress, "Not seller");
+      require(senderAddress == itemSellerAddress, "[isSeller] Not seller");
       _;
   }
 
   modifier isBuyer(uint _sku) {                       // pjr added - check the buyer (msg.sender) is the buyer address stored in the item
       address buyerAddress = msg.sender;
       address itemBuyerAddress = items[_sku].buyer;
-      require(buyerAddress == itemBuyerAddress, "Not buyer");
+      require(buyerAddress == itemBuyerAddress, "[isBuyer] Not buyer");
       _;
   }
 
@@ -110,12 +110,12 @@ contract SupplyChain {
       owner = msg.sender;            // 1. Set the owner to the transaction sender
       skuCount = 0;                  // 2. Initialize the sku count to 0. Question, is this necessary?
   }                                  //    Answer - not necessary, but cleaner code if you are not dependant upon compiler defaults.
-                                     //           - what if future compiler behaviour is changed?  Inheritance and constuctor chaining (always a problem in java!)
+                                     //           - what if future compiler behaviour is changed?  Inheritance and constructor chaining (always a problem in java!)
                                      //           - lastly, the person maintaining the code may not understand default values.
 
   // default action when receiving a payment for the contract
   receive() external payable { }
-  fallback() external payable { revert(); }
+  fallback() external payable { }
 
   /** Add an item */
   function addItem(string memory _name, uint _price) public returns (bool) {
@@ -173,7 +173,7 @@ contract SupplyChain {
 
        //transfer money last, to prevent a reentry attach
        (bool sent, ) = seller.call{value: itemPrice}("");
-       require (sent == true, "Problem buying when trying to send seller");
+       require (sent == true, "[buyItem] Problem buying item when trying to send ether to seller");
 
        // bool sent = seller.send(itemPrice);
   }
