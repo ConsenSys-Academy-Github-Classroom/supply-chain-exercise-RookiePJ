@@ -3,21 +3,16 @@ pragma solidity >=0.5.16 <0.9.0;
 
 contract SupplyChain {
 
-  // <owner>
-  address public owner;
+  /** Storage */
 
-  // <skuCount>
-  uint public skuCount;
-
-  // <items mapping>
-  mapping (uint => Item) items;
-
-  // <enum State: ForSale, Sold, Shipped, Received>
-  enum State { ForSale, Sold, Shipped, Received }
-
-  // <struct Item: name, sku, price, state, seller, and buyer>
+  address public owner;              // <owner>
+  uint public skuCount;             // <skuCount>
+  mapping (uint => Item) items;     // <items mapping>
+  enum State { ForSale, Sold, Shipped, Received }   // <enum State: ForSale, Sold, Shipped, Received>
   struct Item { string name; uint sku; uint price; State state; address payable seller; address payable buyer; }
-  
+                                    // <struct Item: name, sku, price, state, seller, and buyer>
+
+
   /** Events */
 
   event LogForSale(uint sku);          // <LogForSale event: sku arg>
@@ -29,7 +24,6 @@ contract SupplyChain {
   /** Modifiers */
 
   // Create a modifer, `isOwner` that checks if the msg.sender is the owner of the contract
-
   modifier isOwner(address _owner) {         // <modifier: isOwner
       require (msg.sender == _owner);
       _;
@@ -63,6 +57,7 @@ contract SupplyChain {
   // value, so checking that Item.State == ForSale is not sufficient to check
   // that an Item is for sale. Hint: What item properties will be non-zero when
   // an Item has been added?
+  // Answer; (PJR) sku would be 0 when adding first item, therefore seller address is used
 
   modifier forSale(uint _sku) {                         // modifier forSale
      State saleState = items[_sku].state;
@@ -104,6 +99,7 @@ contract SupplyChain {
       _;
   }
 
+
   /** Functions */
 
   constructor() {
@@ -128,7 +124,7 @@ contract SupplyChain {
       items[skuCount] = newItem;          // 1. put in array
       skuCount++;                         // 2. Increment the skuCount by one
       emit LogForSale(skuCount);          // 3. Emit the appropriate event
-      return (true);                      // 4. return true
+      return (true);                      // 4. return true (pjr) some sort of exception handling maybe?
   }
 
     // hint:
@@ -174,6 +170,7 @@ contract SupplyChain {
        //transfer money last, to prevent a reentry attach
        (bool sent, ) = seller.call{value: itemPrice}("");
        require (sent == true, "[buyItem] Problem buying item when trying to send ether to seller");
+       // we now run the code in checkValue(_sku) and any remaining overpaided ether is returned to the buyer
 
        // bool sent = seller.send(itemPrice);
   }
