@@ -45,7 +45,7 @@ contract SupplyChain {
     uint _price = items[_sku].price;
     uint amountToRefund = msg.value - _price;
     address payable buyerPayable = items[_sku].buyer;
-    (bool sent, ) = buyerPayable.call{value: amountToRefund}("");
+    (bool sent, ) = buyerPayable.call{value: amountToRefund}("");    // transfering overpaid ether refund back to buyer using fallback
     //buyerPayable.transfer(amountToRefund); // this is transfering ether!  converted to use the call on the buyer address
     //items[_sku].buyer.transfer(amountToRefund);
   }
@@ -109,12 +109,19 @@ contract SupplyChain {
                                      //           - what if future compiler behaviour is changed?  Inheritance and constructor chaining (always a problem in java!)
                                      //           - lastly, the person maintaining the code may not understand default values.
 
-  // default action when receiving a payment for the contract
-  receive() external payable { }
-  fallback() external payable { }
+  // Default action when receiving a payment for the contract but without any call data (ie no function is called).
+  // Just revert and return the ether in both instances as we expect ether to be sent to this contract using the correct function call ie: buyItem(uint _sku)
+  receive() external payable { revert("contract does not accept ether directly"); }
+  fallback() external payable { revert("contract does not accept ether directly"); }
 
   /** Add an item */
   function addItem(string memory _name, uint _price) public returns (bool) {
+      // check for valid parameters - ie not empty strings or negative prices
+      bytes memory nameStringTest = bytes(_name);
+      require(nameStringTest.length > 0, "Invalid item name");        // no zero length strings
+      require(_price > 0, "Price must be a positive value");          // Accept zero price values but not negative
+                                                                      // using unisgned integer so also watch for buffer underflow/overflow attachs
+      // copy into local variables (maybe a waste of gas, but cleaner code, eaiser to understand).
       address payable itemSellerPayable = payable(msg.sender);
       address payable itemBuyerPayable = payable(address(0));
 
@@ -122,9 +129,9 @@ contract SupplyChain {
           { name: _name, sku: skuCount, price: _price, state: State.ForSale, seller: itemSellerPayable, buyer: itemBuyerPayable }
       );
       items[skuCount] = newItem;          // 1. put in array
-      skuCount++;                         // 2. Increment the skuCount by one
+      skuCount++;                         // 2. Increment the skuCount by one - for next item
       emit LogForSale(skuCount);          // 3. Emit the appropriate event
-      return (true);                      // 4. return true (pjr) some sort of exception handling maybe?
+      return (true);                      // 4. return true if no problems and require functions were triggered
   }
 
     // hint:
@@ -164,6 +171,8 @@ contract SupplyChain {
 
        items[_sku].buyer = buyer;
        items[_sku].state = State.Sold;
+       require(buyer != address(0x00) );   // require that the buyer has an address and not a zero blank addresses
+       require(seller != address(0x00) );   // require that the seller has an address and not a zero blank addresses
 
        emit LogSold(_sku);
 
